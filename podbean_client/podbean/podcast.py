@@ -1,12 +1,12 @@
 import os
 import time
 import requests
-from authenticate import Authenticator
+from podbean_client.podbean.authenticate import Authenticator
 
 class Podcast:
     def __init__(self, config):
         self.config = config
-        self.authenticator = Authenticator(config)
+        self.authenticator = Authenticator(self.config)
         self.token = self.authenticator.read_token()
         self.image = self.config['podcast_image_path']
         self.content = self.config['episode_content']

@@ -6,12 +6,12 @@ setup(
     packages=find_packages(),
     install_requires=[
         # List of dependencies (from requirements.txt)
-        certifi==2024.8.30,
-        charset-normalizer==3.3.2,
-        configparser==7.1.0,
-        idna==3.10,
-        requests==2.32.3,
-        urllib3==2.2.3,
+        'certifi==2024.8.30',
+        'charset-normalizer==3.3.2',
+        'configparser==7.1.0',
+        'idna==3.10',
+        'requests==2.32.3',
+        'urllib3==2.2.3',
     ],
     include_package_data=True,
     entry_points={

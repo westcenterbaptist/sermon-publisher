@@ -3,6 +3,7 @@
 *.pyd
 .env
 __pycache__/
+podbean_client.egg-info/
 venv/
 config.ini
 .token

@@ -10,7 +10,7 @@ class ConfigManager:
         home_dir = os.path.expanduser("~")
         custom_config_path = os.path.join(home_dir, '.config', 'podbean', 'config.ini')
         current_path = os.path.dirname(__file__)
-        default_config_path = os.path.join(current_path, '../config.ini')
+        default_config_path = os.path.join(current_path, '../../config.ini')
 
         if os.path.exists(custom_config_path):
             config.read(custom_config_path)

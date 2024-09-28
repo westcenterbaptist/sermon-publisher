@@ -3,7 +3,7 @@ import requests
 import base64
 import json
 from datetime import datetime, timedelta
-from config_manager import ConfigManager
+from podbean_client.utils.config_manager import ConfigManager
 
 class Authenticator:
     def __init__(self, config):

@@ -12,15 +12,15 @@ class Podcast:
         self.content = self.config['episode_content']
 
     def process_unpublished_files(self):
-        # Loop over files in unpublished_path and upload them
-        for filename in os.listdir(self.config['unpublished_path']):
+        # Loop over files in unpublished_audio_path and upload them
+        for filename in os.listdir(self.config['unpublished_audio_path']):
             if filename.endswith('.mp3'):
-                filepath = os.path.join(self.config['unpublished_path'], filename)
+                filepath = os.path.join(self.config['unpublished_audio_path'], filename)
                 res = self.upload_audio_file(filepath)
                 if res:
                     print(f"File upload successful: {filename}")
-                    # Move the file to the published_path
-                    new_filepath = os.path.join(self.config['published_path'], filename)
+                    # Move the file to the published_audio_path
+                    new_filepath = os.path.join(self.config['published_audio_path'], filename)
                     os.rename(filepath, new_filepath)
                 else:
                     print(f"File upload unsuccessful: {filename}")

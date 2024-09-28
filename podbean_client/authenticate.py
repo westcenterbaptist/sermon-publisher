@@ -16,11 +16,11 @@ class Authenticator:
                return True 
 
         # Get API key and secret from configuration
-        api_key = self.config['api_key']
-        api_secret = self.config['api_secret']
+        podbean_api_key = self.config['podbean_api_key']
+        podbean_api_secret = self.config['podbean_api_secret']
 
         # Create the credentials string
-        credentials = f"{api_key}:{api_secret}"
+        credentials = f"{podbean_api_key}:{podbean_api_secret}"
     
         # Base64 encode the credentials
         encoded_credentials = base64.b64encode(credentials.encode('utf-8')).decode('utf-8')

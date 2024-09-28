@@ -1,0 +1,10 @@
+[General]
+podbean_api_key = <podbean public key>
+podbean_api_secret = <podbean secret key>
+unpublished_audio_path = <path to unpublished audio>
+published_audio_path = <path to published audio>
+podcast_image_path = <path to podcast logo> 
+publish = <true or false>
+token_path = ./.token
+base_url = https://api.podbean.com/v1/
+episode_content = <p>Exmaple description text</p>

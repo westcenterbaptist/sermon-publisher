@@ -1,4 +1,4 @@
-#!/opt/homebrew/bin/python3
+#!/opt/homebrew/bin/python3.11
 
 from podcast import Podcast
 from config_manager import ConfigManager

@@ -1,2 +1,8 @@
-.podbean_token
+*.pyc
+*.pyo
+*.pyd
+.env
 __pycache__/
+venv/
+config.ini
+.token

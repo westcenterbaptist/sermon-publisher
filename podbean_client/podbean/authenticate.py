@@ -3,44 +3,32 @@ import requests
 import base64
 import json
 from datetime import datetime, timedelta
-from podbean_client.utils.config_manager import ConfigManager
 
-class Authenticator:
-    def __init__(self, config):
-        self.config = config
-        self.config_manager = ConfigManager()
+class PodbeanAuthenticator:
+    def __init__(self, key, secret, url):
+        self.key = key
+        self.secret = secret
+        self.url = url
+        current_path = os.path.dirname(__file__)
+        self.token_path = os.path.join(current_path, './token')
+        self.authenticate()
 
     def authenticate(self):
-        if self.token_exists():
-            if self.check_valid_token():
-               return True 
+        # Validate if the token exists and valid
+        if self.validate_token():
+            return True
 
-        # Get API key and secret from configuration
-        podbean_api_key = self.config['podbean_api_key']
-        podbean_api_secret = self.config['podbean_api_secret']
+        # Create the credentials string and base64 encode
+        credentials = f"{self.key}:{self.secret}".encode()
+        encoded_credentials = base64.b64encode(credentials).decode()
 
-        # Create the credentials string
-        credentials = f"{podbean_api_key}:{podbean_api_secret}"
-    
-        # Base64 encode the credentials
-        encoded_credentials = base64.b64encode(credentials.encode('utf-8')).decode('utf-8')
-
-        oauth_token_url = f"{self.config['base_url']}oauth/token"
-
-        # Set the headers with the Authorization header
-        headers = {
-            'Authorization': f"Basic {encoded_credentials}"
-        }
-
-        # Set the request payload
-        data = {
-            'grant_type': 'client_credentials'
-        }
+        # Set up Authorization header and payload
+        headers = {'Authorization': f'Basic {encoded_credentials}'}
+        data = {'grant_type': 'client_credentials'}
 
         # Make a request to obtain the access token
-        response = requests.post(oauth_token_url, headers=headers, data=data)
+        response = requests.post(self.url, headers=headers, data=data)
 
-        # Handle the response
         if response.status_code == 200:
             access_token = response.json()['access_token']
             expires_in = response.json()['expires_in']
@@ -53,16 +41,18 @@ class Authenticator:
             print(f"Failed to authenticate. Status code: {response.status_code}")
             return False
 
-    def token_exists(self):
-        if os.path.exists(self.config['token_path']):
-            token_data = self.get_token_data()
-            return token_data is not None
-        
-        return False
+    def validate_token(self):
+        if not os.path.exists(self.token_path):
+            token_data = None
+            with open(self.token_path, 'w') as f:
+                pass
+        else:
+            token_data = self.get_token()
 
-    def read_token(self):
-        token_data = self.get_token_data()
-        return token_data['access_token']
+        if token_data:
+            expiration_time = datetime.fromisoformat(token_data['expiration_time'])
+            return datetime.now() <= expiration_time
+        return False
 
     def save_token(self, access_token, expires_in):
         expiration_time = datetime.now() + timedelta(seconds=expires_in)
@@ -71,16 +61,13 @@ class Authenticator:
             'expiration_time': expiration_time.isoformat()
         }
 
-        with open(self.config['token_path'], 'w') as token_file:
-            json.dump(token_data, token_file)
+        with open(self.token_path, 'w') as f:
+            json.dump(token_data, f)
 
-    def check_valid_token(self):
-        token_data = self.get_token_data()
-        if token_data:
-            expiration_time = datetime.fromisoformat(token_data['expiration_time'])
-            return datetime.now() <= expiration_time
-        return False
+    def get_token(self):
+        with open(self.token_path, 'r') as f:
+            return json.load(f)
 
-    def get_token_data(self):
-        with open(self.config['token_path'], 'r') as token_file:
-            return json.load(token_file)
+    def remove_token(self):
+        if os.path.exists(self.token_path):
+            os.remove(self.token_path)

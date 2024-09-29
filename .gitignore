@@ -4,6 +4,8 @@
 .env
 __pycache__/
 podbean_client.egg-info/
+dist/
+build/
 venv/
 config.ini
-.token
+token

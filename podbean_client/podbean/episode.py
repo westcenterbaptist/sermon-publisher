@@ -1,33 +1,43 @@
 import os
 import time
 import requests
-from podbean_client.podbean.authenticate import Authenticator
 
-class Podcast:
-    def __init__(self, config):
-        self.config = config
-        self.authenticator = Authenticator(self.config)
-        self.token = self.authenticator.read_token()
-        self.image = self.config['podcast_image_path']
-        self.content = self.config['episode_content']
+class Episode():
+    def __init__(
+        self, 
+        unpub_path, 
+        pub_path, 
+        image_path, 
+        content, 
+        publish,
+        urls,
+        token
+    ):
+        self.unpub = unpub_path
+        self.pub = pub_path
+        self.image = image_path
+        self.content = content
+        self.publish = publish
+        self.urls = urls
+        self.token = token
 
     def process_unpublished_files(self):
         # Loop over files in unpublished_audio_path and upload them
-        for filename in os.listdir(self.config['unpublished_audio_path']):
+        for filename in os.listdir(self.unpub):
             if filename.endswith('.mp3'):
-                filepath = os.path.join(self.config['unpublished_audio_path'], filename)
+                filepath = os.path.join(self.unpub, filename)
                 res = self.upload_audio_file(filepath)
                 if res:
                     print(f"File upload successful: {filename}")
                     # Move the file to the published_audio_path
-                    new_filepath = os.path.join(self.config['published_audio_path'], filename)
+                    new_filepath = os.path.join(self.pub, filename)
                     os.rename(filepath, new_filepath)
                 else:
                     print(f"File upload unsuccessful: {filename}")
 
     def upload_audio_file(self, filepath):
         filename = os.path.basename(filepath)
-        auth_file_url = f"{self.config['base_url']}files/uploadAuthorize"
+
         params = {
             'access_token': self.token,
             'filename': filename,
@@ -36,8 +46,8 @@ class Podcast:
         }
 
         response = requests.get(
-        auth_file_url,
-        params=params
+            self.urls['auth_upload'],
+            params=params
         )
     
         if response.status_code == 200:
@@ -61,11 +71,10 @@ class Podcast:
         
         print("Upload Successful!")
 
-        episode_url = f"{self.config['base_url']}episodes"
         title = filename.split('.')[0]
         title = title.replace('_', ':')
 
-        if self.config['publish']:
+        if self.publish:
             status = 'publish'
         else:
             status = 'draft'
@@ -77,13 +86,12 @@ class Podcast:
            'status': status,
            'type': 'public',
            'media_key': file_key,
-#           'logo_key': self.image,
         }
 
         print("Creating Episode!")
 
         response = requests.post(
-            episode_url,
+            self.urls['episodes'],
             data=data
         )
 
@@ -94,12 +102,10 @@ class Podcast:
         return True
 
     def get_podcast_id(self):
-        podcast_url = f"{self.config['base_url']}podcast"
-
         data = {'access_token': self.token}
 
         response = requests.post(
-            podcast_url,
+            self.urls['podcast_id'],
             data=data
         )
 

@@ -26,11 +26,14 @@ class ConfigManager:
         config_vars = {
             'podbean_api_key': config.get('PODBEAN_API', 'podbean_api_key'),
             'podbean_api_secret': config.get('PODBEAN_API', 'podbean_api_secret'),
+            'youtube_api_key': config.get('YOUTUBE_API', 'youtube_api_key'),
+            'youtube_api_secret': config.get('YOUTUBE_API', 'youtube_api_secret'),
             'base_url': config.get('PODBEAN_API', 'base_url'),
             'unpublished_audio_path': config.get('PATHS', 'unpublished_audio_path'),
             'published_audio_path': config.get('PATHS', 'published_audio_path'),
             'podcast_image_path': config.get('PATHS', 'podcast_image_path'),
-            'token_path': config.get('PATHS', 'token_path'),
+            'stream_path': config.get('PATHS', 'stream_path'),
+            'video_path': config.get('PATHS', 'video_path'),
             'publish': config.getboolean('OPTIONS', 'publish'),
             'episode_content': config.get('OPTIONS', 'episode_content'),
         }

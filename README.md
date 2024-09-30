@@ -9,8 +9,4 @@ The client can be expanded to work as a service checking if audio needs to be pu
 The goal is automation and modularity. If there is another video service that you prefer to use, the client can be expanded with the use of the `config.ini` to account for other platforms.
 
 ## TODO
-- Restructure/refactor project accordingly
-- Integrate Youtube API for full automation
-- Ensure testing and errors are raised when specific requirements are not met
-- Ensure setup.py works correctly
 - Create documentation

@@ -3,7 +3,7 @@ podbean_api_key = API_KEY_HERE
 podbean_api_secret = API_SECRET_HERE
 base_url = https://api.podbean.com/v1/
 
-[YOUTUBE_API]
+[YOUTUBE_PLUGIN]
 youtube_api_key = API_KEY_HERE
 youtube_channel = westcenterbaptist
 youtube_channel_id = UC8BWxzX9cy2Ina6Wg69OTQQ

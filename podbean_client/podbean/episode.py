@@ -74,7 +74,7 @@ class Episode():
         title = filename.split('.')[0]
         title = title.replace('_', ':')
 
-        if self.publish:
+        if self.publish == True:
             status = 'publish'
         else:
             status = 'draft'

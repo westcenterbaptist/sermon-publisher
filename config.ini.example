@@ -1,10 +1,25 @@
-[General]
-podbean_api_key = <podbean public key>
-podbean_api_secret = <podbean secret key>
-unpublished_audio_path = <path to unpublished audio>
-published_audio_path = <path to published audio>
-podcast_image_path = <path to podcast logo> 
-publish = <true or false>
-token_path = ./.token
+[PODBEAN_API]
+podbean_api_key = API_KEY_HERE
+podbean_api_secret = API_SECRET_HERE
 base_url = https://api.podbean.com/v1/
-episode_content = <p>Exmaple description text</p>
+
+[YOUTUBE_API]
+youtube_api_key = API_KEY_HERE
+youtube_channel = westcenterbaptist
+youtube_channel_id = UC8BWxzX9cy2Ina6Wg69OTQQ
+
+[PATHS]
+unpublished_audio_path = ./example_paths/unpublished_audio
+published_audio_path = ./example_paths/published_audio
+podcast_image_path = ./example_paths/logo.png
+stream_path = ./example_paths/streams
+video_path = ./example_paths/edited_videos
+
+[OPTIONS]
+publish_audio = False
+publish_video = True
+latest_stream = True
+latest_video = True
+stream_playlist = Podcast Streams
+video_playlist = Podcast Videos
+episode_content = <p>Content goes here</p>

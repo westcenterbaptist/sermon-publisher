@@ -5,7 +5,7 @@ from podbean_client.podbean.episode import Episode
 from podbean_client.podbean.authenticate import PodbeanAuthenticator
 from podbean_client.utils.config_manager import ConfigManager
 from podbean_client.utils.utils import end_with_slash
-from podbean_client.youtube.youtube import YouTube
+from podbean_client.youtube.youtube import YouTubeAPI
 
 class PodbeanClient():
     def __init__(self):
@@ -25,15 +25,29 @@ class PodbeanClient():
         return urls
 
     def run(self, platform):
+        video_description = None
         if platform == 'youtube':
-            yt = YouTube(
+            yt = YouTubeAPI(
                 self.config.get('youtube_api_key'),
-                self.config.get('youtube_api_secret'),
-                self.config.get('stream_path'),
-                self.config.get('video_path'),
+                self.config.get('youtube_channel'),
+                self.config.get('youtube_channel_id'),
             )
-            yt.latest_stream()
-            yt.latest_video()
+            if self.config.get('latest_stream') == True:
+                yt.get_video_from_playlist(
+                    self.config.get('stream_playlist'),
+                    self.config.get('stream_path'),
+                )
+            if self.config.get('latest_video') == True:
+                video_description = yt.get_video_from_playlist(
+                    self.config.get('video_playlist'),
+                    self.config.get('video_path'),
+                    self.config.get('publish_video'),
+                    self.config.get('unpublished_audio_path'),
+                    self.config.get('published_audio_path')
+                )
+
+        if video_description:
+            self.config['episode_content'] += f'<p>{video_description}</p>'
 
         authenticator = PodbeanAuthenticator(
                 self.config.get('podbean_api_key'),
@@ -47,7 +61,7 @@ class PodbeanClient():
             self.config.get('published_audio_path'),
             self.config.get('podcast_image_path'),
             self.config.get('episode_content'),
-            self.config.get('publish'),
+            self.config.get('publish_audio'),
             self.urls,
             access_token
         )

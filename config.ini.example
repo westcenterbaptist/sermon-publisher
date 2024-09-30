@@ -1,6 +1,6 @@
-[PODBEAN_API]
-podbean_api_key = API_KEY_HERE
-podbean_api_secret = API_SECRET_HERE
+[PODBEAN_PLUGIN]
+PODBEAN_PLUGIN_key = API_KEY_HERE
+PODBEAN_PLUGIN_secret = API_SECRET_HERE
 base_url = https://api.podbean.com/v1/
 
 [YOUTUBE_PLUGIN]
@@ -12,8 +12,8 @@ youtube_channel_id = UC8BWxzX9cy2Ina6Wg69OTQQ
 unpublished_audio_path = ./example_paths/unpublished_audio
 published_audio_path = ./example_paths/published_audio
 podcast_image_path = ./example_paths/logo.png
-stream_path = ./example_paths/streams
-video_path = ./example_paths/edited_videos
+unedited_video_path = ./example_paths/streams
+edited_video_path = ./example_paths/edited_videos
 
 [OPTIONS]
 publish_audio = False

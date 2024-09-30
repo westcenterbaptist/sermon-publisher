@@ -1,8 +1,8 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='podbean-client',
-    version='0.2',
+    name='sermon_publisher',
+    version='0.3',
     packages=find_packages(),
     install_requires=[
         # List of dependencies (from requirements.txt)
@@ -20,7 +20,7 @@ setup(
         ],
     },
     author='Bailey Belisario',
-    description='A client for interacting with PODBEAN_API and managing podcast episodes',
+    description='A sermon publisher for podcasts and wordpress',
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
     url='https://github.com/ZoneMix/podbean-client',

@@ -3,7 +3,7 @@
 *.pyd
 .env
 __pycache__/
-podbean_client.egg-info/
+sermon_publisher.egg-info/
 dist/
 build/
 venv/

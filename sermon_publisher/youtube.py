@@ -16,15 +16,13 @@ class YouTubeAPI():
             print(f'Could not setup YouTube client. Check API Key.\n{e}')
             raise
 
-    def _download(self, video, playlist, save_path):
-        video = self.get_video_details(playlist)
+    def _download(self, download_video, video, save_path):
         title = video['snippet']['title'].replace(':','_')
-        id = video['snippet']['resourceId']['videoId']
+        id = video['id']
         url = f'https://www.youtube.com/watch?v={id}'
-        description = self.get_video_description(video)
 
-        if video == False:
-            if not os.path.exists(f'{save_path}/{title}.mp3'):
+        if download_video == False:
+            if os.path.exists(f'{save_path}/{title}.mp3'):
                 return
             opts = {
                 'format': 'bestaudio/best',  # Download the best available audio
@@ -45,20 +43,36 @@ class YouTubeAPI():
         with yt_dlp.YoutubeDL(opts) as ydl:
             ydl.download([url])
 
-    def download_video(self, playlist, save_path):
-        self._download(True, playlist, save_path)
+    def download_latest_video(self, playlist, save_path):
+        id = self.get_playlist_id(playlist)
+        video = self.get_playlist_videos(id, 1)
+        self._download(True, video, save_path)
 
-    def download_audio(self, playlist, save_path):
-        self._download(False, playlist, save_path)
+    def download_latest_audio(self, playlist, save_path):
+        id = self.get_playlist_id(playlist)
+        video = self.get_playlist_videos(id, 1)
+        self._download(False, video, save_path)
 
-    def get_video_details(self, playlist):
-        playlist = self.get_playlist(playlist)
-        playlist_id = playlist['id']
-        video = self.get_playlist_video(playlist_id)
-        return video
+    def download_audio(self, video_id, save_path):
+        video = self.get_video_by_id(video_id)
+        print(video)
+        self._download(False, video, save_path)
 
-    def get_video_description(self, video):
-        return video['snippet']['description'].replace('\n','<br/>')
+    def get_video_by_id(self, id):
+        request = self.yt.videos().list(
+            part='snippet',
+            id=id
+        )
+        response = request.execute()
+
+        if not response['items']:
+            return None
+        
+        return response['items'][0]
+
+
+    def get_playlist_id(self, playlist):
+        return self.get_playlist(playlist)['id']
 
     def get_channel_id(self):
         if self.channel == None:
@@ -98,18 +112,58 @@ class YouTubeAPI():
                 return playlist
         raise Exception('Streaming Playlist Not Found')
 
-    def get_playlist_video(self, playlist_id, count=1):
+    def get_playlist_videos(self, playlist_id, count=1):
+        videos = []
+        next_page = None
+
+        while True:
+            request = self.yt.playlistItems().list(
+                part="snippet",
+                playlistId=playlist_id,
+                maxResults=count,
+                pageToken=next_page
+            )
+
+            response = request.execute()
+            if 'items' in response and len(response['items']) > 0:
+                videos.extend(response['items'])
+            else:
+                raise Exception('ERROR: Could not retrieve video from playlist')
+
+            next_page = response.get('nextPageToken')
+            if not next_page:
+                break
+
+        return videos
+
+    def get_playlist_video_count(self, playlist_id):
         request = self.yt.playlistItems().list(
-            part="snippet",
+            part="contentDetails",
             playlistId=playlist_id,
-            maxResults=count,  # Only fetch the latest video
+            maxResults=1
         )
 
-        response = request.execute()
-        if 'items' in response and len(response['items']) > 0:
-            return response['items'][0]
-        else:
-            raise Exception('ERROR: Could not retrieve video from playlist')
+        try:
+            response = request.execute()
+            return response['pageInfo']['totalResults']
+        except Exception as e:
+            print(f'HTTP ERROR: Could not retrieve video count: {e}')
+            raise
+
+    def get_video_description(self, video):
+        return video['snippet']['description']
+
+    def get_latest_youtube_video_description(self):
+        return self.get_latest_video_details()['snippet']['description']
+
+    def get_latest_video_details(self):
+        id = self.get_playlist_id(self.config.get('video_playlist'))
+        return self.get_playlist_videos(id, 1)[0]
+
+    def get_all_youtube_videos_from_playlist(self, playlist):
+        id = self.get_playlist_id(playlist)
+        count = self.get_playlist_video_count(id)
+        return self.get_playlist_videos(id, count)
 
     def channel_error(self):
         raise Exception('Channel ID not found, ensure the channel is configured correctly')

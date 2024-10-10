@@ -15,7 +15,8 @@ class SermonPublisher():
         #workflow.download_latest_video()
         #workflow.download_latest_audio()
         #workflow.publish_podbean_episode()
-        workflow.publish_youtube_sermon_to_website()
+        workflow.publish_all_youtube_sermons_to_website()
+        #workflow.publish_latest_youtube_sermon_to_website()
 
 #def parse_args():
 #    parser = argparse.ArgumentParser(description="Podbean Audio Publishing Client")

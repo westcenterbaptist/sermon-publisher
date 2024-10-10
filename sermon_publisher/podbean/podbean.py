@@ -43,13 +43,16 @@ class Podbean():
         episode = self.setup_podbean_episode()
         episode.process_unpublished_files()
 
-    def get_latest_episode(self):
+    def get_podbean_episodes(self, limit=1):
         params = {
             'access_token': self.token,
-            'limit': 1
+            'limit': limit
         }
         response = requests.get(self.urls['episodes'], params=params)
         return response.json()
+    
+    def get_latest_episode_details(self):
+        return self.get_podbean_episodes()['episodes'][0]
 
     def build_embed(self, url, title):
         url_params = url.split('&')

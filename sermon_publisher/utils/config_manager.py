@@ -3,9 +3,10 @@ import configparser
 
 class ConfigManager:
     def __init__(self):
-        self.config = self.parse_config()
+        self.config = self._parse_config()
+        self._check_config()
 
-    def parse_config(self):
+    def _parse_config(self):
         config = configparser.ConfigParser()
         home_dir = os.path.expanduser("~")
         custom_config_path = os.path.join(home_dir, '.config', 'podbean', 'config.ini')
@@ -55,5 +56,23 @@ class ConfigManager:
                 config_vars[key] = True
             if value == 'False':
                 config_vars[key] = False
-
         return config_vars
+
+    def _check_config(self):
+        if self.config['youtube']:
+            if self.config['youtube_channel'] == None and self.config['youtube_channel_id'] == None:
+                raise Exception('Channel or Channel ID must be configured to use YouTube API')
+            if self.config['youtube_api_key'] == None:
+                raise Exception('YouTube API Key must be configured to use YouTube API')
+        if self.config['podbean']:
+            if self.config['podbean_api_key'] == None:
+                raise Exception("Podbean API Key does not exist, check config.")
+            if self.config['podbean_api_secret'] == None:
+                raise Exception("Podbean API Secret does not exist, check config.")
+        if self.config['advanced_sermons']:
+            if self.config['aswp_url'] == None:
+                raise Exception('ASWP URL not given, check config.')
+            if self.config['aswp_username'] == None:
+                raise Exception('ASWP Username not given, check config.')
+            if self.config['aswp_app_password'] == None:
+                raise Exception('ASWP Password not given, check config')

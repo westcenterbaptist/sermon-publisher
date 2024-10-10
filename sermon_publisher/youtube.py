@@ -1,72 +1,71 @@
 import os
 import googleapiclient.discovery
 import yt_dlp
+from sermon_publisher.utils.config_manager import ConfigManager
 
 class YouTubeAPI():
-    def __init__(
-        self, 
-        api_key,
-        channel, 
-        channel_id,
-    ):
-        if channel == None and channel_id == None:
-            raise Exception('Channel or Channel ID must be configured to use YouTube API')
-        if api_key == None:
-            raise Exception('YouTube API Key must be configured to use YouTube API')
+    def __init__(self):
+        self.config = ConfigManager().config
+        self.channel = self.config.get('youtube_channel')
+        self.channel_id = self.get_channel_id()
+        self.api_key = self.config.get('youtube_api_key')
 
-        self.yt = googleapiclient.discovery.build("youtube", "v3", developerKey=api_key)
-        self.channel = channel
+        try:
+            self.yt = googleapiclient.discovery.build("youtube", "v3", developerKey=self.api_key)
+        except Exception as e:
+            print(f'Could not setup YouTube client. Check API Key.\n{e}')
+            raise
 
-        if channel_id:
-            self.channel_id = channel_id
+    def _download(self, video, playlist, save_path):
+        video = self.get_video_details(playlist)
+        title = video['snippet']['title'].replace(':','_')
+        id = video['snippet']['resourceId']['videoId']
+        url = f'https://www.youtube.com/watch?v={id}'
+        description = self.get_video_description(video)
+
+        if video == False:
+            if not os.path.exists(f'{save_path}/{title}.mp3'):
+                return
+            opts = {
+                'format': 'bestaudio/best',  # Download the best available audio
+                'outtmpl': f'{save_path}/{title}',  # Output template
+                'postprocessors': [{  # Use ffmpeg to convert the audio to mp3
+                    'key': 'FFmpegExtractAudio',
+                    'preferredcodec': 'mp3',
+                    'preferredquality': '192',  # Set the quality (bitrate) of the MP3
+                }],
+            }
         else:
-            self.channel_id = self.get_channel_id()
-            print(f'Channel ID for Config: {self.channel_id}')
+            opts = {
+                'outtmpl': f'{save_path}/{title}',  # Output path and filename template
+                'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]',  # Force MP4 video and audio
+                'merge_output_format': 'mp4',  # Ensure final output is MP4
+            }
 
-        self.playlists = self.list_playlists()
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            ydl.download([url])
 
-    def get_video_from_playlist(
-        self, playlist, save_path,
-        publish=False, unpublished_audio_path=None,
-        published_audio_path=None
-    ):
+    def download_video(self, playlist, save_path):
+        self._download(True, playlist, save_path)
+
+    def download_audio(self, playlist, save_path):
+        self._download(False, playlist, save_path)
+
+    def get_video_details(self, playlist):
         playlist = self.get_playlist(playlist)
         playlist_id = playlist['id']
         video = self.get_playlist_video(playlist_id)
-        video_title = video['snippet']['title'].replace(':','_')
-        video_id = video['snippet']['resourceId']['videoId']
-        video_url = f'https://www.youtube.com/watch?v={video_id}'
-        video_description = video['snippet']['description'].replace('\n','<br/>')
+        return video
 
-        ydl_opts = {
-            'outtmpl': f'{save_path}/{video_title}',  # Output path and filename template
-            'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]',  # Force MP4 video and audio
-            'merge_output_format': 'mp4',  # Ensure final output is MP4
-        }
-
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([video_url])
-
-        if publish == True:
-            if not os.path.exists(f'{published_audio_path}/{video_title}.mp3'):
-                ydl_opts = {
-                    'format': 'bestaudio/best',  # Download the best available audio
-                    'outtmpl': f'{unpublished_audio_path}/{video_title}',  # Output template
-                    'postprocessors': [{  # Use ffmpeg to convert the audio to mp3
-                        'key': 'FFmpegExtractAudio',
-                        'preferredcodec': 'mp3',
-                        'preferredquality': '192',  # Set the quality (bitrate) of the MP3
-                    }],
-                }
-    
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    ydl.download([video_url])
-
-        return video_description
+    def get_video_description(self, video):
+        return video['snippet']['description'].replace('\n','<br/>')
 
     def get_channel_id(self):
         if self.channel == None:
             raise Exception('Channel must be configured to find Channel ID')
+        
+        if self.config.get('youtube_channel_id'):
+            return self.config.get('youtube_channel_id')
             
         request = self.yt.search().list(
             part='snippet',
@@ -93,16 +92,17 @@ class YouTubeAPI():
         return response['items']
 
     def get_playlist(self, key):
-        for playlist in self.playlists:
+        playlists = self.list_playlists()
+        for playlist in playlists:
             if playlist['snippet']['title'] == key:
                 return playlist
         raise Exception('Streaming Playlist Not Found')
 
-    def get_playlist_video(self, playlist_id):
+    def get_playlist_video(self, playlist_id, count=1):
         request = self.yt.playlistItems().list(
             part="snippet",
             playlistId=playlist_id,
-            maxResults=1,  # Only fetch the latest video
+            maxResults=count,  # Only fetch the latest video
         )
 
         response = request.execute()
@@ -113,5 +113,3 @@ class YouTubeAPI():
 
     def channel_error(self):
         raise Exception('Channel ID not found, ensure the channel is configured correctly')
-
-

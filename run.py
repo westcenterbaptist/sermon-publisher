@@ -1,26 +1,21 @@
 #! venv/bin/python3.11
 
 #import argparse
-from sermon_publisher.utils.config_manager import ConfigManager
 from sermon_publisher.workflows import Workflow
-from sermon_publisher.podbean.publish import publish_podcast
+from sermon_publisher.utils.config_manager import ConfigManager
+
 class SermonPublisher():
     def __init__(self):
         self.config = ConfigManager().config
-        self.video_description = None
+        return
 
     def run(self):
-        if self.config['youtube']:
-            workflow = Workflow(self.config)
-            workflow.download_latest_stream()
-            self.video_description = workflow.publish_video_audio()
-
-        if self.video_description:
-            self.config['episode_content'] += f'<p>{self.video_description}</p>'
-
-        if self.config['podbean']:
-            publish_podcast(self.config)
-
+        workflow = Workflow()
+        #workflow.download_latest_stream()
+        #workflow.download_latest_video()
+        #workflow.download_latest_audio()
+        #workflow.publish_podbean_episode()
+        workflow.publish_youtube_sermon_to_website()
 
 #def parse_args():
 #    parser = argparse.ArgumentParser(description="Podbean Audio Publishing Client")

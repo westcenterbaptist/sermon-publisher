@@ -1,30 +1,32 @@
 import os
 import configparser
+import logging
+from typing import Dict, Any
+
+logger = logging.getLogger(__name__)
 
 class ConfigManager:
+    """
+    Manages configuration settings for the application
+    """
+
     def __init__(self):
         self.config = self._parse_config()
-        self._check_config()
+        self._validate_config()
 
-    def _parse_config(self):
+    def _parse_config(self) -> Dict[str, Any]:
         config = configparser.ConfigParser()
-        home_dir = os.path.expanduser("~")
-        custom_config_path = os.path.join(home_dir, '.config', 'podbean', 'config.ini')
-        current_path = os.path.dirname(__file__)
-        default_config_path = os.path.join(current_path, '../../config.ini')
+        config_path = os.path.join(os.path.dirname(__file__), '../../config/config.ini')
 
-        if os.path.exists(custom_config_path):
-            config.read(custom_config_path)
-        elif os.path.exists(default_config_path):
-            config.read(default_config_path)
-        else:
-            raise FileNotFoundError(f"""
-            Config file not found. Check one of the two paths below\n
-             Custom Path: {custom_config_path}
-            Default Path: {default_config_path}
-            """)
+        if not os.path.exists(config_path):
+            logger.error(f"[-] Config file not found at {config_path}")
+            raise FileNotFoundError(f"Config file not found at {config_path}")
+        
+        config.read(config_path)
+        logger.debug(f"[*] Loaded configuration from {config_path}")
 
         config_vars = {
+            # PODBEAN_PLUGIN
             'podbean_api_key': config.get('PODBEAN_PLUGIN', 'podbean_api_key', fallback=None),
             'podbean_api_secret': config.get('PODBEAN_PLUGIN', 'podbean_api_secret', fallback=None),
             'podbean_api_url': config.get('PODBEAN_PLUGIN', 'podbean_api_url', fallback=None),
@@ -33,6 +35,8 @@ class ConfigManager:
             'podbean_image_path': config.get('PODBEAN_PLUGIN', 'podbean_image_path', fallback=None),
             'episode_content': config.get('PODBEAN_PLUGIN', 'episode_content', fallback=None),
             'publish_audio': config.getboolean('PODBEAN_PLUGIN', 'publish_audio', fallback=False),
+
+            # YOUTUBE_PLUGIN
             'youtube_api_key': config.get('YOUTUBE_PLUGIN', 'youtube_api_key', fallback=None),
             'youtube_channel': config.get('YOUTUBE_PLUGIN', 'youtube_channel', fallback=None),
             'youtube_channel_id': config.get('YOUTUBE_PLUGIN', 'youtube_channel_id', fallback=None),
@@ -41,38 +45,60 @@ class ConfigManager:
             'stream_playlist': config.get('YOUTUBE_PLUGIN', 'stream_playlist', fallback=None),
             'video_playlist': config.get('YOUTUBE_PLUGIN', 'video_playlist', fallback=None),
             'publish_video_audio': config.getboolean('YOUTUBE_PLUGIN', 'publish_video', fallback=False),
+
+            # ADVANCED_SERMONS_WP_PLUGIN
             'aswp_url': config.get('ADVANCED_SERMONS_WP_PLUGIN', 'aswp_url', fallback=False),
             'aswp_username': config.get('ADVANCED_SERMONS_WP_PLUGIN', 'aswp_username', fallback=False),
             'aswp_app_password': config.get('ADVANCED_SERMONS_WP_PLUGIN', 'aswp_app_password', fallback=False),
+
+            # OPTIONS
             'podbean': config.getboolean('OPTIONS', 'podbean', fallback=False),
             'youtube': config.getboolean('OPTIONS', 'youtube', fallback=False),
             'advanced_sermons': config.getboolean('OPTIONS', 'advanced_sermons', fallback=False),
         }
 
         for key, value in config_vars.items():
-            if value == 'None':
-                config_vars[key] = None
-            if value == 'True':
-                config_vars[key] = True
-            if value == 'False':
-                config_vars[key] = False
+            if isinstance(value, str):
+                lowered = value.lower()
+                if lowered == 'none':
+                    config_vars[key] = None
+                elif value == 'true':
+                    config_vars[key] = True
+                elif value == 'false':
+                    config_vars[key] = False
+        
+        logger.debug("[*] Configuration variables parsed successfully.")
         return config_vars
 
-    def _check_config(self):
-        if self.config['youtube']:
-            if self.config['youtube_channel'] == None and self.config['youtube_channel_id'] == None:
-                raise Exception('Channel or Channel ID must be configured to use YouTube API')
-            if self.config['youtube_api_key'] == None:
-                raise Exception('YouTube API Key must be configured to use YouTube API')
-        if self.config['podbean']:
-            if self.config['podbean_api_key'] == None:
-                raise Exception("Podbean API Key does not exist, check config.")
-            if self.config['podbean_api_secret'] == None:
-                raise Exception("Podbean API Secret does not exist, check config.")
-        if self.config['advanced_sermons']:
-            if self.config['aswp_url'] == None:
-                raise Exception('ASWP URL not given, check config.')
-            if self.config['aswp_username'] == None:
-                raise Exception('ASWP Username not given, check config.')
-            if self.config['aswp_app_password'] == None:
-                raise Exception('ASWP Password not given, check config')
+    def _validate_config(self):
+        """
+        Validates the loaded configuration to ensure all required settings are present.
+        """
+        if self.config.get('youtube'):
+            if not self.config.get('youtube_channel') and not self.config.get('youtube_channel_id'):
+                logger.error("[-] Channel or Channel ID must be configured to use YouTube API.")
+                raise ValueError("Channel or Channel ID must be configured to use YouTube API.")
+            if not self.config.get('youtube_api_key'):
+                logger.error("[-] YouTube API Key must be configured to use YouTube API.")
+                raise ValueError("YouTube API Key must be configured to use YouTube API.")
+
+        if self.config.get('podbean'):
+            if not self.config.get('podbean_api_key'):
+                logger.error("[-] Podbean API Key does not exist, check config.")
+                raise ValueError("Podbean API Key does not exist, check config.")
+            if not self.config.get('podbean_api_secret'):
+                logger.error("[-] Podbean API Secret does not exist, check config.")
+                raise ValueError("Podbean API Secret does not exist, check config.")
+
+        if self.config.get('advanced_sermons'):
+            if not self.config.get('aswp_url'):
+                logger.error("[-] ASWP URL not given, check config.")
+                raise ValueError('ASWP URL not given, check config.')
+            if not self.config.get('aswp_username'):
+                logger.error("[-] ASWP Username not given, check config.")
+                raise ValueError('ASWP Username not given, check config.')
+            if not self.config.get('aswp_app_password'):
+                logger.error("[-] ASWP Password not given, check config.")
+                raise ValueError('ASWP Password not given, check config.')
+
+        logger.debug("[*] Configuration validated successfully.")

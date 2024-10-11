@@ -1,8 +1,11 @@
 #! venv/bin/python3.12
 
-#import argparse
+import argparse
+import logging
 from sermon_publisher.workflows.workflow import Workflow
 from sermon_publisher.utils.config_manager import ConfigManager
+from sermon_publisher.utils.logging_config import setup_logging
+from sermon_publisher.exceptions.custom_exceptions import SermonPublisherError
 
 class SermonPublisher():
     def __init__(self):

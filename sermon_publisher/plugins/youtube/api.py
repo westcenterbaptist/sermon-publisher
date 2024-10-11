@@ -1,11 +1,8 @@
-# sermon_publisher/plugins/youtube/api.py
-
 import os
 import logging
 from typing import Dict, Any, Optional, List
 import googleapiclient.discovery
 import yt_dlp
-from sermon_publisher.utils.helpers import end_with_slash
 from sermon_publisher.exceptions.custom_exceptions import YouTubeAPIError
 
 class YouTubeAPI:

@@ -1,4 +1,4 @@
-#! venv/bin/python3.12
+# sermon_publisher/main.py
 
 import argparse
 import logging
@@ -39,19 +39,19 @@ def main():
     setup_logging(args.log_level)
 
     logger = logging.getLogger("SermonPublisherMain")
-    logger.info("[+] Starting Sermon Publisher")
+    logger.info("Starting Sermon Publisher")
 
     try:
         config_manager = ConfigManager()
         config = config_manager.get_config()
     except Exception as e:
-        logger.error(f"[-] Failed to load configuration: {e}", exc_info=True)
+        logger.error(f"Failed to load configuration: {e}", exc_info=True)
         return
 
     try:
         workflow = Workflow(config)
     except SermonPublisherError as e:
-        logger.error(f"[-] Workflow initialization failed: {e}", exc_info=True)
+        logger.error(f"Workflow initialization failed: {e}", exc_info=True)
         return
 
     try:
@@ -63,11 +63,11 @@ def main():
             if args.podbean:
                 workflow.publish_podbean_episode()
     except SermonPublisherError as e:
-        logger.error(f"[-] An error occurred during workflow execution: {e}", exc_info=True)
+        logger.error(f"An error occurred during workflow execution: {e}", exc_info=True)
     except Exception as e:
-        logger.error(f"[-] Unexpected error: {e}", exc_info=True)
+        logger.error(f"Unexpected error: {e}", exc_info=True)
 
-    logger.info("[+] Sermon Publisher finished.")
+    logger.info("Sermon Publisher finished.")
 
 if __name__ == "__main__":
     main()

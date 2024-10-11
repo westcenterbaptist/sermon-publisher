@@ -1,115 +1,158 @@
 import os
-import time
+import logging
 import requests
+from typing import Dict, Any
+from sermon_publisher.exceptions.custom_exceptions import PodbeanEpisodeError
+from sermon_publisher.podbean.authenticate import PodbeanAuthenticator
 
-class Episode():
+class EpisodeProcessor:
+    """
+    Handles processing and uploading of Podbean episodes.
+    """
+
     def __init__(
         self, 
-        unpub_path, 
-        pub_path, 
-        image_path, 
-        content, 
-        publish,
-        urls,
-        token
+        unpublished_audio_path: str, 
+        published_audio_path: str, 
+        image_path: str, 
+        content: str, 
+        publish: bool,
+        urls: Dict[str, str],
+        authenticator: PodbeanAuthenticator
     ):
-        self.unpub = unpub_path
-        self.pub = pub_path
-        self.image = image_path
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.unpublished_audio_path = unpublished_audio_path
+        self.published_audio_path = published_audio_path
+        self.image_path = image_path
         self.content = content
         self.publish = publish
         self.urls = urls
-        self.token = token
+        self.authenticator = authenticator
+        self.access_token = self.authenticator.access_token
 
-    def process_unpublished_files(self):
-        # Loop over files in unpublished_audio_path and upload them
-        for filename in os.listdir(self.unpub):
-            if filename.endswith('.mp3'):
-                filepath = os.path.join(self.unpub, filename)
-                res = self.upload_audio_file(filepath)
-                if res:
-                    print(f"File upload successful: {filename}")
-                    # Move the file to the published_audio_path
-                    new_filepath = os.path.join(self.pub, filename)
-                    os.rename(filepath, new_filepath)
-                else:
-                    print(f"File upload unsuccessful: {filename}")
+    def process_unpublished_files(self) -> None:
+        """
+        Processes and uploads all unpublished audio files.
+        """
+        try:
+            files = os.listdir(self.unpublished_audio_path)
+            self.logger.debug(f"Found {len(files)} files in unpublished_audio_path.")
+        except OSError as e:
+            self.logger.error(f"Failed to list directory {self.unpublished_audio_path}: {e}")
+            raise PodbeanEpisodeError(f"Failed to list directory {self.unpublished_audio_path}") from e
 
-    def upload_audio_file(self, filepath):
+        for filename in files:
+            if filename.lower().endswith('.mp3'):
+                filepath = os.path.join(self.unpublished_audio_path, filename)
+                self.logger.info(f"Processing file: {filename}")
+                try:
+                    success = self.upload_audio_file(filepath)
+                    if success:
+                        self.logger.info(f"File upload successful: {filename}")
+                        # Move the file to the published_audio_path
+                        new_filepath = os.path.join(self.published_audio_path, filename)
+                        os.rename(filepath, new_filepath)
+                        self.logger.debug(f"Moved file to {new_filepath}")
+                    else:
+                        self.logger.warning(f"File upload unsuccessful: {filename}")
+                except PodbeanEpisodeError as e:
+                    self.logger.error(f"Error processing file {filename}: {e}")
+
+    def upload_audio_file(self, filepath: str) -> bool:
+        """
+        Uploads an audio file to Podbean.
+
+        :param filepath: Path to the audio file.
+        :return: True if upload is successful, False otherwise.
+        """
         filename = os.path.basename(filepath)
+        filesize = os.path.getsize(filepath)
+        self.logger.debug(f"Uploading file: {filename}, Size: {filesize} bytes")
 
         params = {
-            'access_token': self.token,
+            'access_token': self.access_token,
             'filename': filename,
-            'filesize': int(os.path.getsize(filepath)),
+            'filesize': filesize,
             'content_type': 'audio/mpeg'
         }
 
-        response = requests.get(
-            self.urls['auth_upload'],
-            params=params
-        )
-    
-        if response.status_code == 200:
-            presigned_url = response.json()['presigned_url']
-            expire_at = response.json()['expire_at']
-            file_key = response.json()['file_key']
-        else:
-            print("Failed to retrieve file upload authorization")
+        try:
+            response = requests.get(
+                self.urls['auth_upload'],
+                params=params
+            )
+            response.raise_for_status()
+            token_data = response.json()
+            presigned_url = token_data['presigned_url']
+            file_key = token_data['file_key']
+            self.logger.debug(f"Received presigned URL for {filename}")
+        except requests.RequestException as e:
+            self.logger.error(f"Failed to retrieve file upload authorization for {filename}: {e}")
+            return False
+        except KeyError as e:
+            self.logger.error(f"Missing key in upload authorization response: {e}")
             return False
 
-        print("Uploading file...may take a minute...")
-
-        response = requests.put(
-            presigned_url,
-            data=open(filepath, 'rb')
-        )
-
-        if not response.status_code == 200:
-            print("Failed to upload file to AWS")
+        self.logger.info(f"Uploading file {filename} to AWS S3.")
+        try:
+            with open(filepath, 'rb') as f:
+                upload_response = requests.put(
+                    presigned_url,
+                    data=f
+                )
+            upload_response.raise_for_status()
+            self.logger.info(f"Upload successful: {filename}")
+        except requests.RequestException as e:
+            self.logger.error(f"Failed to upload file to AWS for {filename}: {e}")
             return False
-        
-        print("Upload Successful!")
 
-        title = filename.split('.')[0]
-        title = title.replace('_', ':')
-
-        if self.publish == True:
-            status = 'publish'
-        else:
-            status = 'draft'
+        # Create the episode in Podbean
+        title = os.path.splitext(filename)[0].replace('_', ':')
+        status = 'publish' if self.publish else 'draft'
 
         data = {
-           'access_token': self.token,
-           'title': title,
-           'content': self.content,
-           'status': status,
-           'type': 'public',
-           'media_key': file_key,
+            'access_token': self.access_token,
+            'title': title,
+            'content': self.content,
+            'status': status,
+            'type': 'public',
+            'media_key': file_key,
         }
 
-        print("Creating Episode!")
-
-        response = requests.post(
-            self.urls['episodes'],
-            data=data
-        )
-
-        if not response.status_code == 200:
-            print(response.json())
+        self.logger.info(f"Creating episode for {title}")
+        try:
+            post_response = requests.post(
+                self.urls['episodes'],
+                data=data
+            )
+            post_response.raise_for_status()
+            self.logger.info(f"Episode created successfully: {title}")
+            return True
+        except requests.RequestException as e:
+            self.logger.error(f"Failed to create episode for {title}: {e}")
             return False
 
-        return True
+    def get_podcast_id(self) -> str:
+        """
+        Retrieves the podcast ID from Podbean.
 
-    def get_podcast_id(self):
-        data = {'access_token': self.token}
+        :return: Podcast ID if successful, 'error' otherwise.
+        """
+        data = {'access_token': self.access_token}
 
-        response = requests.post(
-            self.urls['podcast_id'],
-            data=data
-        )
-
-        if response.status_code == 200:
-            return response.json()['podcast']['id']
-
-        return 'error'
+        self.logger.debug("Retrieving podcast ID.")
+        try:
+            response = requests.post(
+                self.urls['podcast_id'],
+                data=data
+            )
+            response.raise_for_status()
+            podcast_id = response.json()['podcast']['id']
+            self.logger.debug(f"Podcast ID retrieved: {podcast_id}")
+            return podcast_id
+        except requests.RequestException as e:
+            self.logger.error(f"Failed to retrieve podcast ID: {e}")
+            return 'error'
+        except KeyError as e:
+            self.logger.error(f"Missing key in podcast ID response: {e}")
+            return 'error'

@@ -1,63 +1,43 @@
-import requests
-from sermon_publisher.podbean.episode import Episode
-from sermon_publisher.podbean.authenticate import PodbeanAuthenticator
-from sermon_publisher.utils.helpers import end_with_slash
-from sermon_publisher.utils.config_manager import ConfigManager
+import logging
+from typing import Dict, Any, Optional
 
-class Podbean():
-    def __init__(self):
-        self.config = ConfigManager().config
-        self.base_url = end_with_slash(self.config.get('podbean_api_url'))
-        self.urls = self.setup_podbean_urls()
-        self.authenticator = self.setup_podbean_auth()
-        self.token = self.authenticator.get_token()['access_token']
+from sermon_publisher.plugins.podbean.authenticate import PodbeanAuthenticator
+from sermon_publisher.plugins.podbean.episode import EpisodeProcessor
+from sermon_publisher.exceptions.custom_exceptions import PodbeanClientError
 
-    def setup_podbean_urls(self):
-        urls = {
-            'token': self.base_url + 'oauth/token',
-            'auth_upload': self.base_url + 'files/uploadAuthorize',
-            'episodes': self.base_url + 'episodes',
-            'podcast_id': self.base_url + 'podcast'
+class PodbeanClient:
+    """
+    Handles general interactions with the Podbean API.
+    """
+
+    def __init__(self, authenticator: PodbeanAuthenticator, config: Dict[str, Any]):
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.authenticator = authenticator
+        self.config = config
+        self.urls = {
+            'auth_upload': 'https://api.podbean.com/v1/upload',
+            'episodes': 'https://api.podbean.com/v1/episodes',
+            'podcast_id': 'https://api.podbean.com/v1/podcast',
+            # Add other necessary endpoints
         }
-        return urls
 
-    def setup_podbean_auth(self):
-        return PodbeanAuthenticator(
-                self.config.get('podbean_api_key'),
-                self.config.get('podbean_api_secret'),
-                self.urls['token'],
-        )
+    def get_episode_processor(self) -> EpisodeProcessor:
+        """
+        Returns an instance of EpisodeProcessor.
 
-    def setup_podbean_episode(self, token):
-        return Episode(
-            self.config.get('unpublished_audio_path'),
-            self.config.get('published_audio_path'),
-            self.config.get('podcast_image_path'),
-            self.config.get('episode_content'),
-            self.config.get('publish_audio'),
-            self.urls,
-            self.token
-        )
-
-    def publish_podbean_episode(self):
-        episode = self.setup_podbean_episode()
-        episode.process_unpublished_files()
-
-    def get_podbean_episodes(self, limit=1):
-        params = {
-            'access_token': self.token,
-            'limit': limit
-        }
-        response = requests.get(self.urls['episodes'], params=params)
-        return response.json()
-    
-    def get_latest_episode_details(self):
-        return self.get_podbean_episodes()['episodes'][0]
-
-    def build_embed(self, url, title):
-        url_params = url.split('&')
-        for param in url_params:
-            if param[0] == 'i' and param[1] == '=':
-                id = param
-        
-        return f'<iframe title="{title}" allowtransparency="true" height="150" width="100%" style="border: none; min-width: min(100%, 430px);height:150px;" scrolling="no" data-name="pb-iframe-player" src="https://www.podbean.com/player-v2/?from=embed&{id}&share=1&download=1&fonts=Arial&skin=f6f6f6&font-color=auto&rtl=0&logo_link=&btn-skin=3267a3&size=150" loading="lazy"></iframe>'
+        :return: EpisodeProcessor instance.
+        """
+        try:
+            self.logger.debug("Initializing EpisodeProcessor.")
+            return EpisodeProcessor(
+                unpublished_audio_path=self.config.get('unpublished_audio_path'),
+                published_audio_path=self.config.get('published_audio_path'),
+                image_path=self.config.get('podbean_image_path'),
+                content=self.config.get('episode_content'),
+                publish=self.config.get('publish_audio'),
+                urls=self.urls,
+                authenticator=self.authenticator
+            )
+        except Exception as e:
+            self.logger.error(f"Failed to create EpisodeProcessor: {e}")
+            raise PodbeanClientError("Failed to create EpisodeProcessor.") from e

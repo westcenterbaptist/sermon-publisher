@@ -1,98 +1,95 @@
-from sermon_publisher.plugins.youtube.api import YouTubeAPI
-from sermon_publisher.advanced_sermons.sermon import Sermon
-from sermon_publisher.podbean.podbean import Podbean
-from sermon_publisher.utils.config_manager import ConfigManager
+# sermon_publisher/workflows/workflow.py
 
-class Workflow():
-    def __init__(self) -> None:
-        self.config = ConfigManager().config
-        if self.config['youtube']:
-            self.yt = YouTubeAPI()
+from typing import Dict, Any, Optional
+import logging
+
+from sermon_publisher.workflows.strategies.publish_youtube_sermons import PublishYouTubeSermonsStrategy
+from sermon_publisher.workflows.strategies.publish_podbean_episode import PublishPodbeanEpisodeStrategy
+from sermon_publisher.workflows.base_workflow import BaseWorkflow
+from sermon_publisher.exceptions.custom_exceptions import WorkflowError
+from sermon_publisher.plugins.plugin_factory import PluginFactory
+
+class Workflow(BaseWorkflow):
+    """
+    Orchestrates publishing tasks by utilizing various strategies.
+    """
+
+    def __init__(self, config: Dict[str, Any], factory: Optional[PluginFactory] = None):
+        self.config = config
+        self.logger = logging.getLogger(self.__class__.__name__)
+
+        factory = factory or PluginFactory(config)
+        try:
+            self.youtube_api = factory.create_youtube_api()
+            self.podbean_client = factory.create_podbean_client()
+            self.sermon = factory.create_sermon()
+        except WorkflowError as e:
+            self.logger.error(f"Plugin initialization failed: {e}")
+            raise WorkflowError("Failed to initialize plugins.") from e
+
+        if not any([self.youtube_api, self.podbean_client, self.sermon]):
+            self.logger.warning("No plugins are enabled in the configuration.")
+
+        # Initialize strategies
+        self.strategies = []
+        if self.youtube_api and self.sermon:
+            self.strategies.append(
+                PublishYouTubeSermonsStrategy(
+                    youtube_api=self.youtube_api,
+                    sermon=self.sermon,
+                    config=self.config
+                )
+            )
+        if self.podbean_client:
+            episode_processor = self.podbean_client.get_episode_processor()
+            self.strategies.append(
+                PublishPodbeanEpisodeStrategy(
+                    episode_processor=episode_processor,
+                    config=self.config
+                )
+            )
+
+        self.logger.debug(f"Initialized with {len(self.strategies)} strategies.")
+
+    def run_all(self) -> None:
+        """
+        Executes all available publishing tasks using strategies.
+        """
+        if not self.strategies:
+            self.logger.warning("No strategies to execute.")
+            return
+
+        for strategy in self.strategies:
+            try:
+                strategy.execute()
+                self.logger.info(f"Executed strategy: {strategy.__class__.__name__}")
+            except WorkflowError as e:
+                self.logger.error(f"Strategy {strategy.__class__.__name__} failed: {e}", exc_info=True)
+
+    def publish_all_youtube_sermons_to_website(self) -> None:
+        """
+        Executes the strategy to publish all YouTube sermons to the website.
+        """
+        strategy = next((s for s in self.strategies if isinstance(s, PublishYouTubeSermonsStrategy)), None)
+        if strategy:
+            try:
+                strategy.execute()
+                self.logger.info(f"Executed strategy: {strategy.__class__.__name__}")
+            except WorkflowError as e:
+                self.logger.error(f"Strategy {strategy.__class__.__name__} failed: {e}", exc_info=True)
         else:
-            self.yt = None
+            self.logger.warning("PublishYouTubeSermonsStrategy is not available.")
 
-        if self.config['podbean']:
-            self.podbean = Podbean()
+    def publish_podbean_episode(self) -> None:
+        """
+        Executes the strategy to publish a Podbean episode.
+        """
+        strategy = next((s for s in self.strategies if isinstance(s, PublishPodbeanEpisodeStrategy)), None)
+        if strategy:
+            try:
+                strategy.execute()
+                self.logger.info(f"Executed strategy: {strategy.__class__.__name__}")
+            except WorkflowError as e:
+                self.logger.error(f"Strategy {strategy.__class__.__name__} failed: {e}", exc_info=True)
         else:
-            self.podbean = None
-
-        if self.config['advanced_sermons']:
-            self.sermon = Sermon()
-        else:
-            self.sermon = None
-
-    def download_latest_stream(self):
-        if self.yt == None:
-            raise Exception('Cannot download stream unless Youtube config is correct')
-        self.yt.download_video(
-            self.config.get('stream_playlist'),
-            self.config.get('unedited_video_path'),
-        )
-
-    def download_latest_video(self):
-        if self.yt == None:
-            raise Exception('Cannot download video unless Youtube config is correct')
-        self.yt.download_latest_video(
-            self.config.get('video_playlist'),
-            self.config.get('edited_video_path')
-        )
-
-    def download_latest_audio(self):
-        if self.yt == None:
-            raise Exception('Cannot download audio unless YouTube config is correct')
-        self.yt.download_latest_audio(
-            self.config.get('video_playlist'),
-            self.config.get('published_audio_path')
-        )
-
-    def publish_latest_youtube_sermon_to_website(self):
-        youtube_video = self.yt.get_latest_video_details()
-        podbean_episode_details = self.podbean.get_latest_episode_details()
-        podbean_embed = self.podbean.build_embed(podbean_episode_details['player_url'], podbean_episode_details['title'])
-        print(youtube_video, podbean_embed)
-        #self.sermon.post_youtube_sermon(youtube_video, podbean_embed) 
-
-    def publish_all_youtube_sermons_to_website(self):
-        videos = self.yt.get_all_youtube_videos_from_playlist(self.config.get('video_playlist'))
-        episodes = self.podbean.get_podbean_episodes(1000)['episodes']
-        matches = []
-
-        for video in videos:
-            description = video['snippet']['description'].split('\n')
-            video_title = description[0].lower()
-            if '’' in video_title:
-                video_title = video_title.replace('’','\'')
-            for episode in episodes:
-                episode_title = episode['title'].lower()
-                if '-' in episode_title:
-                    index = episode_title.find('-')
-                    episode_title = episode_title[:index-1]
-                if '–' in episode_title:
-                    index = episode_title.find('–')
-                    episode_title = episode_title[:index-1]
-                if '’' in episode_title:
-                    episode_title = episode_title.replace('’','\'')
-
-                if 'living and lif' in episode_title and 'living and lif' in video_title:
-                    matches.append([video, self.podbean.build_embed(episode['player_url'], episode['title'])])
-                    episodes.remove(episode)
-                    break
-
-                if 'how to be rem' in episode_title and 'how to be rem' in video_title:
-                    matches.append([video, self.podbean.build_embed(episode['player_url'], episode['title'])])
-                    episodes.remove(episode)
-                    break
-
-                if video_title == episode_title:
-                    matches.append([video, self.podbean.build_embed(episode['player_url'], episode['title'])])
-                    episodes.remove(episode)
-                    break
-
-        for pair in matches:
-            self.sermon.post_youtube_sermon(pair[0], pair[1])
-
-    def publish_podbean_episode(self):
-        if self.config['youtube']:
-            youtube_content = self.yt.get_latest_youtube_video_description().replace('\n', '<br/>')
-            self.config['episode_content'] += f'<p>{youtube_content}</p>'
-        self.podbean.publish_podbean_episode()
+            self.logger.warning("PublishPodbeanEpisodeStrategy is not available.")

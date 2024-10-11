@@ -1,6 +1,5 @@
 import logging
 from typing import Dict, Any, Optional
-
 from sermon_publisher.plugins.podbean.authenticate import PodbeanAuthenticator
 from sermon_publisher.plugins.podbean.episode import EpisodeProcessor
 from sermon_publisher.exceptions.custom_exceptions import PodbeanClientError
@@ -15,9 +14,9 @@ class PodbeanClient:
         self.authenticator = authenticator
         self.config = config
         self.urls = {
-            'auth_upload': 'https://api.podbean.com/v1/upload',
-            'episodes': 'https://api.podbean.com/v1/episodes',
-            'podcast_id': 'https://api.podbean.com/v1/podcast',
+            'auth_upload': f"{self.config.get('podbean_api_url')}/upload",
+            'episodes': f"{self.config.get('podbean_api_url')}/episodes",
+            'podcast_id': f"{self.config.get('podbean_api_url')}/podcast",
             # Add other necessary endpoints
         }
 

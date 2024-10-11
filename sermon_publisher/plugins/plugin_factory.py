@@ -1,3 +1,4 @@
+import os
 import logging
 from typing import Optional, Dict, Any
 from sermon_publisher.plugins.podbean.client import PodbeanClient
@@ -21,9 +22,9 @@ class PluginFactory:
                 self.logger.debug("Initializing PodbeanAuthenticator.")
                 key = self.config.get('podbean_api_key')
                 secret = self.config.get('podbean_api_secret')
-                url = self.config.get('base_url')
-                token_dir = self.config.get('token_directory', self.config.get('unpublished_audio_path'))  # Specify a separate directory if needed
-                return PodbeanAuthenticator(key, secret, url, token_dir)
+                podbean_api_url = self.config.get('podbean_api_url')
+                # Set token_dir to None to default to project root
+                return PodbeanAuthenticator(key, secret, podbean_api_url)
             except Exception as e:
                 self.logger.error(f"Failed to initialize PodbeanAuthenticator: {e}")
                 raise PluginInitializationError("PodbeanAuthenticator initialization failed.") from e

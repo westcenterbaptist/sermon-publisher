@@ -8,4 +8,4 @@ dist/
 build/
 venv/
 config.ini
-token
+token.json

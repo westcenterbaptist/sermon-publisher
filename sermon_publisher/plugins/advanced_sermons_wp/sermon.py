@@ -1,8 +1,8 @@
 # sermon_publisher/plugins/advanced_sermons_wp/sermon.py
 
 import logging
-from typing import Dict, Any, Optional
 import requests
+from typing import Dict, Any, Optional
 from requests.auth import HTTPBasicAuth
 from sermon_publisher.utils.helpers import convert_to_iso
 from sermon_publisher.exceptions.custom_exceptions import SermonWPError

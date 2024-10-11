@@ -1,12 +1,9 @@
-# sermon_publisher/plugins/podbean/authenticate.py
-
 import os
-import requests
-import base64
 import json
-from datetime import datetime, timedelta
+import base64
 import logging
-
+import requests
+from datetime import datetime, timedelta
 from sermon_publisher.exceptions.custom_exceptions import PodbeanAuthError
 
 class PodbeanAuthenticator:
@@ -14,12 +11,16 @@ class PodbeanAuthenticator:
     Handles authentication with the Podbean API.
     """
 
-    def __init__(self, key: str, secret: str, url: str, token_dir: str):
+    def __init__(self, key: str, secret: str, podbean_api_url: str, token_dir: str = None):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.key = key
         self.secret = secret
-        self.url = url
-        self.token_path = os.path.join(token_dir, 'token.json')
+        self.podbean_api_url = podbean_api_url.rstrip('/')  # Ensure no trailing slash
+        if token_dir is None:
+            # Default to project root
+            self.token_path = os.path.join(os.getcwd(), 'token.json')
+        else:
+            self.token_path = os.path.join(token_dir, 'token.json')
         self.access_token = None
         self.authenticate()
 
@@ -39,8 +40,11 @@ class PodbeanAuthenticator:
         headers = {'Authorization': f'Basic {encoded_credentials}'}
         data = {'grant_type': 'client_credentials'}
 
+        oauth_token_url = f"{self.podbean_api_url}/oauth/token"
+        self.logger.debug(f"OAuth Token URL: {oauth_token_url}")
+
         try:
-            response = requests.post(self.url, headers=headers, data=data)
+            response = requests.post(oauth_token_url, headers=headers, data=data)
             response.raise_for_status()
             token_data = response.json()
             self.access_token = token_data['access_token']

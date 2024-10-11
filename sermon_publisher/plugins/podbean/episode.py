@@ -3,7 +3,7 @@ import logging
 import requests
 from typing import Dict, Any
 from sermon_publisher.exceptions.custom_exceptions import PodbeanEpisodeError
-from sermon_publisher.podbean.authenticate import PodbeanAuthenticator
+from sermon_publisher.plugins.podbean.authenticate import PodbeanAuthenticator
 
 class EpisodeProcessor:
     """

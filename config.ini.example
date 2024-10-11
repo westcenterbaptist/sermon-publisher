@@ -1,25 +1,29 @@
 [PODBEAN_PLUGIN]
-PODBEAN_PLUGIN_key = API_KEY_HERE
-PODBEAN_PLUGIN_secret = API_SECRET_HERE
+podbean_api_key = apikey
+podbean_api_secret = secret
 base_url = https://api.podbean.com/v1/
+unpublished_audio_path = /home/user/audio/unpublished
+published_audio_path = /home/user/audio/published
+podbean_image_path = /home/user/podbean/logo.png
+episode_content = <p>Podcast episode content</p>
+publish_audio = True
 
 [YOUTUBE_PLUGIN]
-youtube_api_key = API_KEY_HERE
+youtube_api_key = apikey
 youtube_channel = westcenterbaptist
 youtube_channel_id = UC8BWxzX9cy2Ina6Wg69OTQQ
+unedited_video_path = /home/user/videos/unedited
+edited_video_path = /home/user/videos/edited
+stream_playlist = Live Streams
+video_playlist = Sermons
+publish_video_audio = True
 
-[PATHS]
-unpublished_audio_path = ./example_paths/unpublished_audio
-published_audio_path = ./example_paths/published_audio
-podcast_image_path = ./example_paths/logo.png
-unedited_video_path = ./example_paths/streams
-edited_video_path = ./example_paths/edited_videos
+[ADVANCED_SERMONS_WP_PLUGIN]
+aswp_url = https://westcenterbaptist.com/wp-json/wp/v2/
+aswp_username = test
+aswp_app_password = dummypassword
 
 [OPTIONS]
-publish_audio = False
-publish_video = True
-latest_stream = True
-latest_video = True
-stream_playlist = Podcast Streams
-video_playlist = Podcast Videos
-episode_content = <p>Content goes here</p>
+podbean = True
+youtube = True
+advanced_sermons = True

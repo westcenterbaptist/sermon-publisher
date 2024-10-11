@@ -15,6 +15,13 @@ class ConfigManager:
         self._validate_config()
 
     def _parse_config(self) -> Dict[str, Any]:
+        """
+        Internal function to parse config.ini file for project
+
+        :return: Returns the config variables in python format
+        :rtype: Dict[str, Any]
+        :raises FileNotFoundError: If the config.ini file cannot be found
+        """
         config = configparser.ConfigParser()
         config_path = os.path.join(os.path.dirname(__file__), '../../config/config.ini')
 

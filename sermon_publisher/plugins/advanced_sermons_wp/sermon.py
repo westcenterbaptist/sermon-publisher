@@ -1,38 +1,52 @@
+# sermon_publisher/plugins/advanced_sermons_wp/sermon.py
+
+import logging
+from typing import Dict, Any, Optional
 import requests
 from requests.auth import HTTPBasicAuth
-from sermon_publisher.utils.config_manager import ConfigManager
 from sermon_publisher.utils.helpers import convert_to_iso
+from sermon_publisher.exceptions.custom_exceptions import SermonWPError
 
-class Sermon():
-    def __init__(self):
-        self.config = ConfigManager().config
+class Sermon:
+    """
+    Handles interactions with the Advanced Sermons WP plugin.
+    """
+
+    def __init__(self, config: Dict[str, Any]):
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.config = config
         self.base_url = self.config.get('aswp_url')
         self.auth = HTTPBasicAuth(self.config.get('aswp_username'), self.config.get('aswp_app_password'))
         self.sermon_book = self.get_taxonomy_terms("sermon_book")
 
-    def get_sermons(self):
-        return requests.get(f"{self.base_url}/sermons")
+        if not all([self.base_url, self.auth.username, self.auth.password]):
+            self.logger.error("ASWP configuration is incomplete.")
+            raise SermonWPError("ASWP configuration is incomplete.")
 
-    def post_youtube_sermon(self, youtube_video, podbean_embed):
+    def get_sermons(self) -> requests.Response:
+        return requests.get(f"{self.base_url}/sermons", auth=self.auth)
+
+    def post_youtube_sermon(self, youtube_video: Dict[str, Any], podbean_embed: str) -> None:
         video_id = youtube_video['snippet']['resourceId']['videoId']
         description = youtube_video['snippet']['description'].split('\n')
         title = description[0]
         slug = title.replace(' ', '-').lower()
-        
+
         if self.check_sermon_exists_by_slug(slug):
+            self.logger.info(f"Sermon '{slug}' already exists. Skipping.")
             return
 
         image_url = youtube_video['snippet']['thumbnails']['maxres']['url']
         youtube_url = f'https://www.youtube.com/watch?v={video_id}'
 
         bible_passage = description[1]
-        if bible_passage[1] == ' ':
-            tmp = bible_passage.split(' ')
-            book_name = tmp[0] + ' ' + tmp[1] 
+        if bible_passage.startswith(' '):
+            tmp = bible_passage.strip().split(' ')
+            book_name = f"{tmp[0]} {tmp[1]}" if len(tmp) > 1 else tmp[0]
         else:
             book_name = bible_passage.split(' ')[0]
 
-        series_name = description[2].split(':')[1][1:]
+        series_name = description[2].split(':')[1].strip() if ':' in description[2] else description[2].strip()
         speaker_name = description[3]
         book = self.get_book_value(book_name)
         speaker = self.get_or_create_speaker(speaker_name)
@@ -40,9 +54,12 @@ class Sermon():
         date = convert_to_iso(description[4])
         media_id = self.search_media_by_filename(series_name)
 
-        if media_id == None:
-            image = self.download_image(image_url)
-            media_id = self.upload_image_to_wordpress(image, series_name)
+        if media_id is None:
+            image_content = self.download_image(image_url)
+            media_id = self.upload_image_to_wordpress(image_content, series_name)
+            if media_id is None:
+                self.logger.error("Failed to upload image. Cannot proceed with sermon posting.")
+                return
 
         meta = {
             'asp_sermon_video_type_select': 'youtube',
@@ -67,10 +84,13 @@ class Sermon():
 
         try:
             response = requests.post(f"{self.base_url}/sermons", auth=self.auth, json=payload)
-        except Exception as e:
-            print(f'HTTP Error: Could not publish sermon to website: {e}')
+            response.raise_for_status()
+            self.logger.info(f"Sermon '{title}' posted successfully.")
+        except requests.RequestException as e:
+            self.logger.error(f"HTTP Error: Could not publish sermon to website: {e}")
+            raise SermonWPError(f"Could not publish sermon '{title}': {e}") from e
 
-    def get_taxonomy_terms(self, taxonomy):
+    def get_taxonomy_terms(self, taxonomy: str) -> Dict[str, int]:
         url = f"{self.base_url}/{taxonomy}"
         all_terms = []
         page = 1
@@ -85,204 +105,166 @@ class Sermon():
 
             try:
                 response = requests.get(url, params=params, auth=self.auth)
+                response.raise_for_status()
+                terms = response.json()
+                all_terms.extend(terms)
 
-                # Check for successful response
-                if response.status_code == 200:
-                    terms = response.json()
-                    all_terms.extend(terms)
-
-                    # Check if we've retrieved all pages
-                    total_pages = int(response.headers.get('X-WP-TotalPages', 1))
-                    if page >= total_pages:
-                        break  # All pages have been fetched
-                    else:
-                        page += 1  # Move to the next page
+                total_pages = int(response.headers.get('X-WP-TotalPages', 1))
+                if page >= total_pages:
+                    break
                 else:
-                    print(f"Failed to fetch terms: {response.status_code}")
-                    print(f"Response: {response.text}")
-                    return None
+                    page += 1
             except requests.exceptions.RequestException as e:
-                print(f"An error occurred: {e}")
-                return None
+                self.logger.error(f"Failed to fetch taxonomy terms: {e}")
+                raise SermonWPError(f"Failed to fetch taxonomy terms: {e}") from e
 
+        self.logger.debug(f"Fetched {len(all_terms)} taxonomy terms for '{taxonomy}'.")
         return {term['name']: term['id'] for term in all_terms}
 
-    def get_book_value(self, book):
-        for k,v in self.sermon_book.items():
-            if k == book:
-                return v
-        return None
+    def get_book_value(self, book: str) -> Optional[int]:
+        return self.sermon_book.get(book)
 
-    def download_image(self, image_url):
-        """
-        Downloads an image from the given URL.
-
-        :param image_url: URL of the image to download.
-        :return: Tuple containing image content and filename, or (None, None) if failed.
-        """
+    def download_image(self, image_url: str) -> Optional[bytes]:
         try:
             response = requests.get(image_url, stream=True)
             response.raise_for_status()
 
-            # Extract filename from URL
-            filename = image_url.split('/')[-1].split('?')[0]  # Handles URLs with query params
-
-            # Validate content type
             content_type = response.headers.get('Content-Type', '')
             if not content_type.startswith('image/'):
-                print(f"The URL does not point to an image. Content-Type: {content_type}")
-                return None, None
+                self.logger.error(f"The URL does not point to an image. Content-Type: {content_type}")
+                return None
 
+            self.logger.debug(f"Image downloaded from {image_url}")
             return response.content
         except requests.exceptions.RequestException as e:
-            print(f"Failed to download image: {e}")
-            return None, None
+            self.logger.error(f"Failed to download image: {e}")
+            return None
 
-    def search_media_by_filename(self, filename):
-        """
-        Searches the WordPress Media Library for an image with the given filename.
-
-        :param filename: The filename to search for.
-        :return: Media ID if found, else None.
-        """
+    def search_media_by_filename(self, filename: str) -> Optional[int]:
         try:
             params = {
                 'search': filename,
-                'per_page': 100,  # Maximum allowed per_page value
+                'per_page': 100,
                 'media_type': 'image'
             }
-            response = requests.get(f'{self.base_url}/media', params=params, auth=self.auth)
+            response = requests.get(f"{self.base_url}/media", params=params, auth=self.auth)
             response.raise_for_status()
             media_items = response.json()
 
             for item in media_items:
-                # WordPress may return media items where the filename is part of the title or slug
-                # To ensure exact match, compare the 'slug' or 'source_url'
                 if 'slug' in item and filename.lower().replace(' ', '-') in item['slug'].lower():
+                    self.logger.debug(f"Found existing media ID {item['id']} for filename '{filename}'.")
                     return item['id']
+            self.logger.info(f"No existing media found for filename '{filename}'.")
             return None
         except requests.exceptions.RequestException as e:
-            print(f"Failed to search media: {e}")
+            self.logger.error(f"Failed to search media: {e}")
             return None
 
-    def upload_image_to_wordpress(self, image_content, filename):
-        """
-        Uploads an image to the WordPress Media Library.
+    def upload_image_to_wordpress(self, image_content: bytes, filename: str) -> Optional[int]:
+        if not image_content:
+            self.logger.error("No image content to upload.")
+            return None
 
-        :param image_content: Binary content of the image.
-        :param filename: Name of the image file.
-        :return: Media ID of the uploaded image, or None if failed.
-        """
         headers = {
-            'Content-disposition': f'attachment; filename={filename}.jpg',
+            'Content-Disposition': f'attachment; filename={filename}.jpg',
             'Content-Type': 'image/jpeg',  # Adjust if not JPEG
         }
 
         try:
             response = requests.post(
-                f'{self.base_url}media',
+                f"{self.base_url}/media",
                 headers=headers,
                 data=image_content,
                 auth=self.auth
             )
             response.raise_for_status()
             media_id = response.json().get('id')
+            self.logger.info(f"Uploaded image '{filename}.jpg' with media ID {media_id}.")
             return media_id
         except requests.exceptions.RequestException as e:
-            print(f"Failed to upload image: {e}")
-            print(f"Response: {response.text}")
+            self.logger.error(f"Failed to upload image: {e}")
+            self.logger.debug(f"Response: {response.text}")
             return None
 
-    def get_or_create_sermon_series(self, series_name):
-        """
-        Retrieves the ID of an existing sermon series by name or creates it if it doesn't exist.
-
-        :param series_name: Name of the sermon series.
-        :return: ID of the sermon series, or None if failed.
-        """
-        # Step 1: Search for existing sermon series
+    def get_or_create_sermon_series(self, series_name: str) -> Optional[int]:
         try:
+            # Search for existing sermon series
             params = {
                 'search': series_name,
-                'per_page': 100,  # Maximum allowed per_page value
+                'per_page': 100,
             }
-            response = requests.get(f'{self.base_url}sermon_series', params=params, auth=self.auth)
+            response = requests.get(f"{self.base_url}/sermon_series", params=params, auth=self.auth)
             response.raise_for_status()
             series_items = response.json()
 
-            # Exact match check
             for item in series_items:
                 if item['name'].lower() == series_name.lower():
+                    self.logger.debug(f"Found existing sermon series '{series_name}' with ID {item['id']}.")
                     return item['id']
 
-            # If not found, create the sermon series
+            # Create new sermon series
             payload = {
                 'name': series_name,
                 'slug': series_name.replace(' ', '-').lower()
             }
-            create_response = requests.post(f'{self.base_url}sermon_series', json=payload, auth=self.auth)
+            create_response = requests.post(f"{self.base_url}/sermon_series", json=payload, auth=self.auth)
             create_response.raise_for_status()
             new_series = create_response.json()
+            self.logger.info(f"Created new sermon series '{series_name}' with ID {new_series['id']}.")
             return new_series['id']
 
         except requests.exceptions.RequestException as e:
-            print(f"Error in get_or_create_sermon_series for '{series_name}': {e}")
-            print(f"Response: {response.text}")
-            return None
+            self.logger.error(f"Error in get_or_create_sermon_series for '{series_name}': {e}")
+            self.logger.debug(f"Response: {response.text}")
+            raise SermonWPError(f"Error in get_or_create_sermon_series for '{series_name}': {e}") from e
 
-    def get_or_create_speaker(self, speaker_name):
+    def get_or_create_speaker(self, speaker_name: str) -> Optional[int]:
         try:
+            # Search for existing speaker
             params = {
                 'search': speaker_name,
-                'per_page': 100,  # Maximum allowed per_page value
+                'per_page': 100,
             }
-            response = requests.get(f'{self.base_url}sermon_speaker', params=params, auth=self.auth)
+            response = requests.get(f"{self.base_url}/sermon_speaker", params=params, auth=self.auth)
             response.raise_for_status()
-            series_items = response.json()
+            speaker_items = response.json()
 
-            # Exact match check
-            for item in series_items:
+            for item in speaker_items:
                 if item['name'].lower() == speaker_name.lower():
+                    self.logger.debug(f"Found existing speaker '{speaker_name}' with ID {item['id']}.")
                     return item['id']
 
-            # If not found, create the sermon series
+            # Create new speaker
             payload = {
                 'name': speaker_name,
                 'slug': speaker_name.replace(' ', '-').lower()
             }
-            create_response = requests.post(f'{self.base_url}sermon_speaker', json=payload, auth=self.auth)
+            create_response = requests.post(f"{self.base_url}/sermon_speaker", json=payload, auth=self.auth)
             create_response.raise_for_status()
-            new_series = create_response.json()
-            return new_series['id']
+            new_speaker = create_response.json()
+            self.logger.info(f"Created new speaker '{speaker_name}' with ID {new_speaker['id']}.")
+            return new_speaker['id']
 
         except requests.exceptions.RequestException as e:
-            print(f"Error in get_or_create_sermon_series for '{speaker_name}': {e}")
-            print(f"Response: {response.text}")
-            return None
+            self.logger.error(f"Error in get_or_create_speaker for '{speaker_name}': {e}")
+            self.logger.debug(f"Response: {response.text}")
+            raise SermonWPError(f"Error in get_or_create_speaker for '{speaker_name}': {e}") from e
 
-    def check_sermon_exists_by_slug(self, slug):
-        """
-        Checks if a sermon with the given slug already exists in WordPress.
-
-        :param slug: The slug of the sermon to check.
-        :return: True if the sermon exists, False otherwise.
-        """
+    def check_sermon_exists_by_slug(self, slug: str) -> bool:
         try:
-            # Define the endpoint with the slug query parameter
-            search_endpoint = f'{self.base_url}sermons?slug={slug}'
-
-            # Make the GET request
+            search_endpoint = f"{self.base_url}/sermons?slug={slug}"
             response = requests.get(search_endpoint, auth=self.auth)
             response.raise_for_status()
-
-            # Parse the JSON response
             sermons = response.json()
 
-            if sermons:
-                return True
+            exists = bool(sermons)
+            if exists:
+                self.logger.info(f"Sermon with slug '{slug}' exists.")
             else:
-                return False
+                self.logger.debug(f"Sermon with slug '{slug}' does not exist.")
+            return exists
 
         except requests.exceptions.RequestException as e:
-            print(f"Error checking sermon existence for slug '{slug}': {e}")
-            return False  # Alternatively, you might want to handle this differently
+            self.logger.error(f"Error checking sermon existence for slug '{slug}': {e}")
+            return False

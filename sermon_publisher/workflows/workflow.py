@@ -1,4 +1,4 @@
-from sermon_publisher.youtube import YouTubeAPI
+from sermon_publisher.plugins.youtube.youtube import YouTubeAPI
 from sermon_publisher.advanced_sermons.sermon import Sermon
 from sermon_publisher.podbean.podbean import Podbean
 from sermon_publisher.utils.config_manager import ConfigManager

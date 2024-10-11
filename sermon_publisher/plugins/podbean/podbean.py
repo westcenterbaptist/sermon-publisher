@@ -1,13 +1,13 @@
 import requests
 from sermon_publisher.podbean.episode import Episode
 from sermon_publisher.podbean.authenticate import PodbeanAuthenticator
-from sermon_publisher.utils.utils import end_with_slash
+from sermon_publisher.utils.helpers import end_with_slash
 from sermon_publisher.utils.config_manager import ConfigManager
 
 class Podbean():
     def __init__(self):
         self.config = ConfigManager().config
-        self.base_url = end_with_slash(self.config.get('base_url'))
+        self.base_url = end_with_slash(self.config.get('podbean_api_url'))
         self.urls = self.setup_podbean_urls()
         self.authenticator = self.setup_podbean_auth()
         self.token = self.authenticator.get_token()['access_token']

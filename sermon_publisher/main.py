@@ -1,7 +1,7 @@
 #! venv/bin/python3.11
 
 #import argparse
-from sermon_publisher.workflows import Workflow
+from sermon_publisher.workflows.workflow import Workflow
 from sermon_publisher.utils.config_manager import ConfigManager
 
 class SermonPublisher():

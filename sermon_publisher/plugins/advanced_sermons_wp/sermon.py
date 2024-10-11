@@ -1,7 +1,7 @@
 import requests
 from requests.auth import HTTPBasicAuth
 from sermon_publisher.utils.config_manager import ConfigManager
-from sermon_publisher.utils.utils import convert_to_iso
+from sermon_publisher.utils.helpers import convert_to_iso
 
 class Sermon():
     def __init__(self):

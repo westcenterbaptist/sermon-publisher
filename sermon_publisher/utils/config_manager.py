@@ -27,7 +27,7 @@ class ConfigManager:
         config_vars = {
             'podbean_api_key': config.get('PODBEAN_PLUGIN', 'podbean_api_key', fallback=None),
             'podbean_api_secret': config.get('PODBEAN_PLUGIN', 'podbean_api_secret', fallback=None),
-            'base_url': config.get('PODBEAN_PLUGIN', 'base_url', fallback=None),
+            'podbean_api_url': config.get('PODBEAN_PLUGIN', 'podbean_api_url', fallback=None),
             'unpublished_audio_path': config.get('PODBEAN_PLUGIN', 'unpublished_audio_path', fallback=None),
             'published_audio_path': config.get('PODBEAN_PLUGIN', 'published_audio_path', fallback=None),
             'podbean_image_path': config.get('PODBEAN_PLUGIN', 'podbean_image_path', fallback=None),

@@ -1,6 +1,4 @@
-beautifulsoup4==4.12.3
 Brotli==1.1.0
-bs4==0.0.2
 cachetools==5.5.0
 certifi==2024.8.30
 charset-normalizer==3.3.2
@@ -21,8 +19,6 @@ pycryptodomex==3.21.0
 pyparsing==3.1.4
 requests==2.32.3
 rsa==4.9
--e git+ssh://git@github.com/westcenterbaptist/podbean-client.git@691984c0b3751bcfef8f8751ce1b16d5ac4dbdae#egg=sermon_publisher
-soupsieve==2.6
 uritemplate==4.1.1
 urllib3==2.2.3
 websockets==13.1

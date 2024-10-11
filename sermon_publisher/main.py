@@ -1,4 +1,4 @@
-#! venv/bin/python3.11
+#! venv/bin/python3.12
 
 #import argparse
 from sermon_publisher.workflows.workflow import Workflow

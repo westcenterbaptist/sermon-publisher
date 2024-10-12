@@ -1,7 +1,7 @@
 import os
 import logging
 import requests
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from sermon_publisher.exceptions.custom_exceptions import PodbeanEpisodeError
 from sermon_publisher.plugins.podbean.authenticate import PodbeanAuthenticator
 
@@ -18,7 +18,7 @@ class EpisodeProcessor:
         content: str, 
         publish: bool,
         urls: Dict[str, str],
-        authenticator: PodbeanAuthenticator
+        authenticator: Optional[PodbeanAuthenticator]
     ):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.unpublished_audio_path = unpublished_audio_path

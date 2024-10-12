@@ -46,7 +46,6 @@ class ConfigManager:
             'edited_video_path': config.get('YOUTUBE_PLUGIN', 'edited_video_path', fallback=None),
             'stream_playlist': config.get('YOUTUBE_PLUGIN', 'stream_playlist', fallback=None),
             'video_playlist': config.get('YOUTUBE_PLUGIN', 'video_playlist', fallback=None),
-            'publish_video_audio': config.getboolean('YOUTUBE_PLUGIN', 'publish_video_audio', fallback=False),
 
             # ADVANCED_SERMONS_WP_PLUGIN
             'aswp_url': config.get('ADVANCED_SERMONS_WP_PLUGIN', 'aswp_url', fallback=None),

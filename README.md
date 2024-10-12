@@ -100,7 +100,6 @@ unedited_video_path = /path/to/unedited/videos
 edited_video_path = /path/to/edited/videos
 stream_playlist = Live Streams
 video_playlist = Sermons
-publish_video_audio = True
 
 [ADVANCED_SERMONS_WP_PLUGIN]
 aswp_url = https://yourwebsite.com/wp-json/wp/v2/

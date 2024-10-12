@@ -33,15 +33,15 @@ class Workflow(BaseWorkflow):
             self.strategies.append(
                 PublishYouTubeSermonsStrategy(
                     youtube_api=self.youtube_api,
+                    podbean_client=self.podbean_client,
                     sermon=self.sermon,
                     config=self.config
                 )
             )
         if self.podbean_client:
-            episode_processor = self.podbean_client.get_episode_processor()
             self.strategies.append(
                 PublishPodbeanEpisodeStrategy(
-                    episode_processor=episode_processor,
+                    episode_processor=self.podbean_client.episode_processor,
                     config=self.config
                 )
             )

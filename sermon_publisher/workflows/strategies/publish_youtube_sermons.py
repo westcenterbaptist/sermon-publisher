@@ -28,14 +28,22 @@ class PublishYouTubeSermonsStrategy(BaseStrategy):
             episodes = self.podbean_client.get_episodes()
             matches = self._find_matches(videos, episodes)
 
-            #for video in videos:
-            #    description = self.youtube_api.get_video_description(video)
-            #    self.logger.debug(f"Processing video: {video['snippet']['title']}")
-            #    episode_processor = self.podbean_client.get_episode_processor()
-            #    episode_processor
-            #    #self.sermon.post_youtube_sermon(video, "")  # Pass embed_html if applicable
+            to_publish = []
 
-            #self.logger.info("YouTube sermons published successfully.")
+            for video in videos:
+                vtitle = video['snippet']['title']
+                san_vtitle = self._sanitize_title(vtitle)
+                if san_vtitle in matches:
+                    for episode in episodes:
+                        san_etitle = self._sanitize_title(episode['title'])
+                        if san_etitle in matches:
+                            embed = self.podbean_client.build_embed(episode['player_url'], vtitle)
+                            to_publish.append([video, embed])
+                            break
+                            
+            for v in to_publish:
+                self.sermon.post_youtube_sermon(v[0], v[1])  # Pass embed_html if applicable
+                self.logger.info("YouTube sermons published successfully.")
 
         except Exception as e:
             self.logger.error(f"Failed to publish YouTube sermons: {e}", exc_info=True)
@@ -52,9 +60,7 @@ class PublishYouTubeSermonsStrategy(BaseStrategy):
             title = self._sanitize_title(episode['title'])
             etitles.append(title)
 
-        matches = set(vtitles).intersection(etitles)
-        for m in matches:
-            print(m)
+        return set(vtitles).intersection(etitles)
 
     def _sanitize_title(self, title: str) -> str:
         title = str(title)

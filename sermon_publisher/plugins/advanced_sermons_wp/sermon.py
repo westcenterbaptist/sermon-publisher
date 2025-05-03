@@ -54,12 +54,15 @@ class Sermon:
         date = convert_to_iso(description[4])
         media_id = self.search_media_by_filename(series_name)
 
-        if media_id is None:
-            image_content = self.download_image(image_url)
-            media_id = self.upload_image_to_wordpress(image_content, series_name)
+        try:
             if media_id is None:
-                self.logger.error("Failed to upload image. Cannot proceed with sermon posting.")
-                return
+                image_content = self.download_image(image_url)
+                media_id = self.upload_image_to_wordpress(image_content, series_name)
+                if media_id is None:
+                    self.logger.error("Failed to upload image. Cannot proceed with sermon posting.")
+                    return
+        except Exception as e:
+            self.logger.error(f"Failed to upload image. Error: {e}")
 
         meta = {
             'asp_sermon_video_type_select': 'youtube',
